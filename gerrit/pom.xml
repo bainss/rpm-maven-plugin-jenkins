@@ -1,0 +1,159 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+<modelVersion>4.0.0</modelVersion>
+	<groupId>triad.maven.rpmbuilder</groupId>
+	<artifactId>Sublime</artifactId>
+	<version>2_MOJ</version>
+	<name>Sublime 2 RPM Package</name>
+	<build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>rpm-maven-plugin</artifactId>
+        <version>2.1-alpha-4</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>rpm</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+					<copyright>2014, Triad</copyright>
+					<group>Development</group>
+					<description>Sublime 2 Package</description>
+					<mappings>
+						<mapping>
+							<directory>${app.home}/</directory>
+						   <sources>
+                        <source>
+                        	<location>${src.home}</location>
+                    		 <targetArchitecture>X86_64</targetArchitecture>
+                    	</source>
+                    </sources>
+							<dependency/>
+							<artifact/>
+						</mapping>
+						<mapping>
+							<directory>${app.home}/conf</directory>
+							<configuration>true</configuration>
+							<sources>
+								<source>
+									<location>${project.build.outputDirectory}/app.properties</location>
+									<destination>app.properties</destination>
+								</source>
+							</sources>
+						</mapping>
+						<mapping>
+							<directory>${app.home}/logs</directory>
+						</mapping>
+					</mappings>
+				</configuration>
+
+          <group>Application/System</group>
+          <needarch>${application.arch}</needarch>
+          <defineStatements>
+            <defineStatement>_unpackage_files_terminate_build 0</defineStatement>
+          </defineStatements>
+          <provides>
+            <provide>jboss</provide>
+          </provides>
+          <mappings>
+            <mapping>
+              <directory>${application.install.dir}</directory>
+              <configuration>false</configuration>
+              <username>jboss</username>
+              <groupname>jboss</groupname>
+              <sources>
+                <source>
+                  <location>${basedir}/target/jboss-${application.version}</location>
+                </source>
+              </sources>
+            </mapping>
+          </mappings>
+          <preinstallScriptlet>
+            <script>
+              /usr/sbin/groupadd -f -r jboss 2> /dev/null || :
+              /usr/sbin/useradd -r -m -c "JBoss user" -g jboss jboss 2> /dev/null || :
+
+              if [ ! -d /var/run/jboss ]; then
+              mkdir /var/run/jboss
+              chown jboss:jboss /var/run/jboss
+              fi
+            </script>
+          </preinstallScriptlet>
+          <postinstallScriptlet>
+            <script>
+              # echo "rpm postinstall $1"
+
+              fail() {
+              echo "ERROR: $1"
+              exit 1
+              }
+
+              # Register jboss as a  service
+              # stupid jboss scripts do no have chkconfig comment, grr
+              # have to do it by hand.  If they had the comment, I would run
+              # /sbin/chkconfig --add jboss || fail "chkconfig failed to register jboss"
+
+              ln -s ${application.install.dir}/bin/jboss_init_redhat.sh /etc/rc.d/init.d/jboss
+              ln -s /etc/init.d/jboss /etc/rc.d/rc0.d/K08jboss
+              ln -s /etc/init.d/jboss /etc/rc.d/rc1.d/K08jboss
+              ln -s /etc/init.d/jboss /etc/rc.d/rc2.d/K08jboss
+              ln -s /etc/init.d/jboss /etc/rc.d/rc6.d/K08jboss
+
+              ln -s /etc/init.d/jboss /etc/rc.d/rc3.d/S92jboss
+              ln -s /etc/init.d/jboss /etc/rc.d/rc4.d/S92jboss
+              ln -s /etc/init.d/jboss /etc/rc.d/rc5.d/S92jboss
+
+              # make the init script executable
+              chmod 755 ${application.install.dir}/bin/*.sh
+
+              echo “${application.name} is now installed.  Set ${application.home.label} to ${application.install.dir} (if needed).  A startup script is in /etc/init.d/jboss and JBoss is configured to start at runlevel 3, 4 and 5"
+            </script>
+          </postinstallScriptlet>
+          <preremoveScriptlet>
+            <script>
+              # echo "rpm preuninstall $1"
+
+              # Normal uninstall
+              if [ $1 = 0 ]; then
+              # unregister service, still wish I could us chkconfig, ie
+              # /sbin/chkconfig --del jboss
+              rm -f /etc/rc.d/init.d/jboss
+              rm -f /etc/rc.d/rc0.d/K08jboss
+              rm -f /etc/rc.d/rc1.d/K08jboss
+              rm -f /etc/rc.d/rc2.d/K08jboss
+              rm -f /etc/rc.d/rc6.d/K08jboss
+              rm -f /etc/rc.d/rc3.d/S92jboss
+              rm -f /etc/rc.d/rc4.d/S92jboss
+              rm -f /etc/rc.d/rc5.d/S92jboss
+              fi
+            </script>
+          </preremoveScriptlet>
+          <postremoveScriptlet>
+            <script>
+              # echo "rpm postuninstall $1"
+
+              JBHOME=$(echo ~jboss)
+              rm -rf /var/run/jboss 2> /dev/null || :
+              /usr/sbin/userdel jboss 2> /dev/null || :
+              echo "JBoss removed.  Leaving the JBoss user home directory, ${JBHOME}.  Remove manually if you really don't need it."
+            </script>
+          </postremoveScriptlet>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <properties>
+    <application.name>Jenkins</application.version>
+    <application.version></application.version>
+    <application.arch>x86_64</application.arch>
+    <application.home.label>JENKINS_HOME</application.arch>
+    <application.install.dir>/usr/local/jboss</application.install.dir>
+	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <dependencies>
+  </dependencies>
+</project>

@@ -1,0 +1,144 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+<modelVersion>4.0.0</modelVersion>
+
+	<groupId>triad.maven.rpmbuilder</groupId>
+	<artifactId>${application.name}</artifactId>
+	<version>${binary.source.version}</version>
+	<name>genericish RPM Package</name>
+	<build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>rpm-maven-plugin</artifactId>
+        <version>2.1-alpha-4</version>
+        <executions>
+<execution>
+         <id>generate-rpm</id>
+                        <goals>
+                            <goal>rpm</goal>
+                        </goals>
+
+        </execution>  
+        </executions>
+        <configuration>
+					<copyright>2014, Triad</copyright>
+					<group>Development</group>
+					<description>Jenkins package</description>
+          <group>Application/System</group>
+          <needarch>${application.arch}</needarch>
+          <defineStatements>
+            <defineStatement>_unpackage_files_terminate_build 0</defineStatement>
+          </defineStatements>
+          <provides>
+            <provide>${application.name}</provide>
+          </provides>
+          <mappings>
+            <mapping>
+              <directory>${application.install.dir}</directory>
+              <configuration>false</configuration>
+              <username>${application.username}</username>
+              <groupname>${application.groupname}</groupname>
+              <sources>
+                <source>
+                  <location>${binary.source.dir}</location>
+                </source>
+              </sources>
+            </mapping>
+          </mappings>
+          <preinstallScriptlet>
+            <script>
+              echo "creating ${application.groupname} group"
+              /usr/sbin/groupadd -f -r ${application.groupname} 2> /dev/null || :
+              /usr/sbin/useradd -r -m -c "${application.username} user" -g ${application.username} ${application.username} 2> /dev/null || :
+              echo "creating ${application.username} user"
+              if [ ! -d /var/run/${application.username} ]; then
+              mkdir /var/run/${application.username}
+              chown ${application.username}:${application.groupname} /var/run/${application.username}
+              fi
+            </script>
+          </preinstallScriptlet>
+          <postinstallScriptlet>
+            <script>
+              # echo "rpm postinstall $1"
+
+              fail() {
+              echo "ERROR: $1"
+              exit 1
+              }
+
+              # Register application as a service
+
+              ln -s ${application.install.dir}/bin/${application.name}.sh /etc/rc.d/init.d/${application.name}
+              echo "registering ${application.name.label} as a service"
+              ln -s /etc/init.d/${application.name} /etc/rc.d/rc0.d/K08${application.name}
+              ln -s /etc/init.d/${application.name} /etc/rc.d/rc1.d/K08${application.name}
+              ln -s /etc/init.d/${application.name} /etc/rc.d/rc2.d/K08${application.name}
+              ln -s /etc/init.d/${application.name} /etc/rc.d/rc6.d/K08${application.name}
+              ln -s /etc/init.d/${application.name} /etc/rc.d/rc3.d/S92${application.name}
+              ln -s /etc/init.d/${application.name} /etc/rc.d/rc4.d/S92${application.name}
+              ln -s /etc/init.d/${application.name} /etc/rc.d/rc5.d/S92${application.name}
+
+              # make the init script executable
+              chmod 755 ${application.install.dir}/bin/*.sh
+              echo "${application.name} is now installed. "
+              echo "Set ${application.home.label} to ${application.install.dir}. "
+              echo ""
+              echo "A startup script is in /etc/init.d/${application.name} and ${application.name} is configured to start at runlevel 3, 4 and 5"
+            </script>
+          </postinstallScriptlet>
+          <preremoveScriptlet>
+            <script>
+              # echo "rpm preuninstall $1"
+
+              # Normal uninstall
+              if [ $1 = 0 ]; then
+              # unregister service
+              echo "unregistering ${application.name} as a service"
+              rm -f /etc/rc.d/init.d/${application.name}
+              rm -f /etc/rc.d/rc0.d/K08${application.name}
+              rm -f /etc/rc.d/rc1.d/K08${application.name}
+              rm -f /etc/rc.d/rc2.d/K08${application.name}
+              rm -f /etc/rc.d/rc6.d/K08${application.name}
+              rm -f /etc/rc.d/rc3.d/S92${application.name}
+              rm -f /etc/rc.d/rc4.d/S92${application.name}
+              rm -f /etc/rc.d/rc5.d/S92${application.name}
+              fi
+            </script>
+          </preremoveScriptlet>
+          <postremoveScriptlet>
+            <script>
+              # echo "rpm postuninstall $1"
+
+			 
+              echo "removing ${application.username} user and group"       
+              rm -rf /var/run/${application.username} 2> /dev/null || :
+              /usr/sbin/userdel ${application.username} 2> /dev/null || :
+               /usr/sbin/groupdel ${application.groupname} 2> /dev/null || :
+
+              echo "${application.name.label} removed.  Leaving the ${application.home.label} user home directory, ${application.install.dir}."
+            </script>
+          </postremoveScriptlet>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <properties>
+    <application.name>jenkins</application.name>
+    <application.name.label>Jenkins</application.name.label>
+    <application.username>jenkins</application.username>
+    <application.groupname>jenkins</application.groupname>
+    <application.version>1.581</application.version>
+    <application.arch>x86_64</application.arch>
+    <application.home.label>JENKINS_HOME</application.home.label>
+    <application.install.dir>/opt/jenkins</application.install.dir>
+    <binary.source.dir>/opt/repo/jenkins</binary.source.dir>
+    <binary.source.name>jenkins</binary.source.name>
+    <binary.source.version>1.581</binary.source.version>
+    
+	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <dependencies>
+  </dependencies>
+</project>
